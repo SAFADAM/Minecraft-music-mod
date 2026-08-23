@@ -15,16 +15,16 @@ jobs:
     - name: 📥 Depoyu Klonla (Checkout)
       uses: actions/checkout@v4
 
-    - name:  Node.js Kurulumu (Capacitor İçin)
+    - name: ⚙️ Node.js Kurulumu (Capacitor İçin)
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
-    - name: ☕ Java 17 Kurulumu (Android Gradle İçin)
+    - name: ☕ Java 21 Kurulumu (Android Gradle İçin Güncellendi)
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
-        java-version: '17'
+        java-version: '21' # Hata buradaydı, 17'den 21'e güncellendi!
 
     - name: 🚀 Capacitor Projesini Oluştur ve Ayarla
       run: |
