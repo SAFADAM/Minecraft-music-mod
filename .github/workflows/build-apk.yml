@@ -1,6 +1,5 @@
 name: Minecraft Music Mod APK Oluşturucu
 
-# Bu işlem depoya (main dalına) bir şey yüklendiğinde VEYA "Actions" sekmesinden manuel tetiklendiğinde çalışır.
 on:
   push:
     branches: [ main ]
@@ -20,43 +19,54 @@ jobs:
       with:
         node-version: '20'
 
-    - name: ☕ Java 21 Kurulumu (Android Gradle İçin Güncellendi)
+    - name: ☕ Java 17 Kurulumu (Android Gradle LTS)
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
-        java-version: '21' # Hata buradaydı, 17'den 21'e güncellendi!
+        java-version: '17'
 
     - name: 🚀 Capacitor Projesini Oluştur ve Ayarla
       run: |
         mkdir app_build
         cd app_build
         
-        # Projeyi başlat
+        # Projeyi başlat ve bağımlılıkları kur
         npm init -y
         npm install @capacitor/core @capacitor/android
         npm install -D @capacitor/cli @capacitor/assets
         
-        # Capacitor Ayarları (İsim ve Paket ID)
+        # Capacitor Ayarları
         npx cap init "Minecraft Music Mod" com.safadam.minecraftmusicmod --web-dir www
         
-        # HTML Dosyasını sisteme entegre et (index.html olarak dönüştürür)
-        mkdir www
+        # Web dosyalarını ve varlıkları kopyala
+        mkdir -p www assets
         cp "../Minecraft Music Mod Studio.html" www/index.html
-        
-        # Gönderilen resmi hem ikon hem de splash (açılış ekranı) için ayarla
-        mkdir assets
         cp "../1787261854224.png" assets/icon.png
         cp "../1787261854224.png" assets/splash.png
         
-        # Android ortamını inşa et
+        # Android platformunu ekle ve varlıkları üret
         npx cap add android
-        
-        # Otomatik olarak logoları tüm Android boyutlarına göre (HDPI, XXHDPI vs.) kes ve oluştur
         npx capacitor-assets generate --android
+        npx cap sync android
         
-        # GEREKLİ İZİNLER: AndroidManifest.xml'e otomatik olarak dosya okuma/yazma izinlerini enjekte et
+        # KOTLIN ÇAKIŞMA DÜZELTMESİ (Görseldeki duplicate class hatasını çözer)
+        cat << 'EOF' >> android/app/build.gradle
+
+        dependencies {
+            constraints {
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22") {
+                    because("kotlin-stdlib-jdk7 is now a part of kotlin-stdlib")
+                }
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22") {
+                    because("kotlin-stdlib-jdk8 is now a part of kotlin-stdlib")
+                }
+            }
+        }
+        EOF
+
+        # Gerekli depolama izinlerini ekle
         MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
-        sed -i '/<uses-permission android:name="android.permission.INTERNET" \/>/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" \/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" \/>' $MANIFEST_PATH
+        sed -i '/<application/i \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST_PATH
 
     - name: 🏗️ APK'yı Derle (Gradle Build)
       run: |
