@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Minecraft Music Mod</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap');
+
+    :root {
+      --mc-bg-dirt: #1e140c;
+      --mc-panel-bg: #2c2c2c;
+      --mc-card-bg: #212121;
+      --mc-slot-bg: #8b8b8b;
+      --mc-btn-bg: #707070;
+      --mc-btn-hover: #8b8b8b;
+      --mc-btn-active: #505050;
+      --mc-border-light: #ffffff;
+      --mc-border-mid: #a0a0a0;
+      --mc-border-dark: #373737;
+      
+      --mc-gold: #ffaa00;
+      --mc-green: #55ff55;
+      --mc-aqua: #55ffff;
+      --mc-red: #ff5555;
+      --mc-yellow: #ffff55;
+    }
+
+    * { box-sizing: border-box; }
+    
+    /* Font Mirası Düzeltildi - Artık input ve butonlar da piksel font kullanacak */
+    body, button, input, select, textarea {
+      font-family: 'Pixelify Sans', monospace, sans-serif;
+    }
+
+    /* Minecraft Tarzı Özel Scrollbar (Kaydırma Çubuğu) */
+    ::-webkit-scrollbar { width: 12px; height: 12px; }
+    ::-webkit-scrollbar-track { background: var(--mc-card-bg); border: 2px solid #000; }
+    ::-webkit-scrollbar-thumb { background: var(--mc-slot-bg); border: 2px solid #000; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--mc-btn-hover); }
+
+    body {
+      background-color: var(--mc-bg-dirt);
+      background-image: radial-gradient(#2d1e12 2px, transparent 2px);
+      background-size: 16px 16px;
+      color: #fff;
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      background: var(--mc-panel-bg);
+      border: 4px solid #000000;
+      box-shadow: inset 4px 4px 0px var(--mc-border-light), inset -4px -4px 0px var(--mc-border-dark), 0 12px 32px rgba(0,0,0,0.8);
+      padding: 20px;
+      position: relative;
+    }
+
+    .header-box { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 4px solid var(--mc-border-dark); }
+    .header-icon { width: 64px; height: 64px; min-width: 64px; border: 3px solid #000; box-shadow: inset 2px 2px 0 var(--mc-border-light), inset -2px -2px 0 var(--mc-border-dark); background: #18181c; cursor: pointer; transition: transform 0.1s; image-rendering: pixelated; object-fit: cover; }
+    .header-icon:hover { transform: scale(1.05); }
+    .header-text h1 { margin: 0 0 4px 0; font-size: clamp(1.1rem, 4vw, 1.35rem); color: var(--mc-gold); font-weight: 700; text-shadow: 2px 2px #000; letter-spacing: 1px; }
+    .header-text p { margin: 0; color: #aaa; font-size: 0.85rem; text-shadow: 2px 2px #000; }
+
+    .toast-message {
+      position: fixed; bottom: 24px; right: 24px; background: #101010; border: 3px solid var(--mc-gold); color: var(--mc-yellow); padding: 12px 20px; font-weight: 700; font-size: 0.95rem; text-shadow: 2px 2px #000; box-shadow: 0 8px 0px #000; display: none; z-index: 9999; animation: popIn 0.2s ease-out;
+    }
+
+    @keyframes popIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .tab-bar { display: flex; gap: 6px; margin-bottom: 16px; border-bottom: 4px solid #000; overflow-x: auto; padding-bottom: 4px; }
+    .tab-btn { background: var(--mc-btn-bg); border: 3px solid #000; box-shadow: inset 2px 2px 0 var(--mc-border-light), inset -2px -2px 0 var(--mc-border-dark); color: #e0e0e0; padding: 10px 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer; text-shadow: 2px 2px #000; white-space: nowrap; user-select: none; transition: filter 0.1s; }
+    .tab-btn:hover { background: var(--mc-btn-hover); color: var(--mc-yellow); }
+    .tab-btn.active { background: var(--mc-btn-hover); color: var(--mc-yellow); border-bottom-color: var(--mc-btn-hover); box-shadow: inset 2px 2px 0 var(--mc-border-light), inset -2px -2px 0 #1e1e1e; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.2s; }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .mc-panel { background: var(--mc-card-bg); border: 3px solid #000; box-shadow: inset 2px 2px 0 var(--mc-border-dark), inset -2px -2px 0 var(--mc-border-light); padding: 16px; margin-bottom: 16px; }
+    .panel-title { font-size: 1rem; color: var(--mc-green); text-shadow: 2px 2px #000; margin: 0 0 12px 0; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+    /* Drag & Drop Alanı Animasyonu */
+    .drop-zone { border: 3px solid #000; background: #151515; box-shadow: inset 3px 3px 0 var(--mc-border-dark), inset -3px -3px 0 var(--mc-border-light); padding: 24px; text-align: center; margin-bottom: 16px; cursor: pointer; transition: all 0.2s ease; user-select: none; }
+    .drop-zone:hover { background: #222222; }
+    .drop-zone.dragover { background: #2a2a2a; border-color: var(--mc-gold); box-shadow: inset 0 0 15px rgba(255, 170, 0, 0.3); animation: pulse 1s infinite alternate; }
+    
+    @keyframes pulse { from { transform: scale(1); } to { transform: scale(0.98); } }
+
+    .track-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    .track-item { background: #2a2a2a; border: 3px solid #000; box-shadow: inset 2px 2px 0 var(--mc-border-light), inset -2px -2px 0 var(--mc-border-dark); padding: 14px; position: relative; }
+    .track-item.needs-file { border-color: var(--mc-red); box-shadow: inset 2px 2px 0 #ff9999, inset -2px -2px 0 #880000; background-color: #3a1a1a; }
+    .track-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .track-title { font-weight: 700; color: var(--mc-green); font-size: 0.95rem; text-shadow: 2px 2px #000; display: flex; align-items: center; gap: 8px; }
+
+    .btn-action-small { background: var(--mc-btn-bg); color: #fff; border: 2px solid #000; box-shadow: inset 1px 1px 0 var(--mc-border-light), inset -1px -1px 0 var(--mc-border-dark); padding: 6px 10px; font-size: 0.75rem; cursor: pointer; font-weight: 700; text-shadow: 1px 1px #000; user-select: none; }
+    .btn-action-small:hover { background: var(--mc-btn-hover); color: var(--mc-yellow); }
+
+    /* Mobil uyumluluk için minmax değeri 180px'den 140px'e düşürüldü */
+    .track-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 10px; background: #151515; padding: 10px; border: 2px solid #000; box-shadow: inset 2px 2px 0 var(--mc-border-dark), inset -2px -2px 0 var(--mc-border-light); }
+    .btn-remove { background: #a00000; color: #fff; border: 2px solid #000; box-shadow: inset 1px 1px 0 #ff6666, inset -1px -1px 0 #500000; padding: 6px 10px; font-weight: 700; font-size: 0.75rem; cursor: pointer; text-shadow: 1px 1px #000; }
+    .btn-remove:hover { background: #d32f2f; }
+    
+    input[type="file"].track-file { width: 100%; padding: 8px; background: #101010; border: 2px solid #000; color: #aaa; font-size: 0.8rem; cursor: pointer; }
+    input[type="file"]::file-selector-button { background: var(--mc-btn-bg); border: 2px solid #000; color: white; font-family: inherit; font-weight: bold; cursor: pointer; padding: 4px 8px; margin-right: 10px; box-shadow: inset 1px 1px 0 var(--mc-border-light); }
+    
+    .audio-preview { width: 100%; height: 36px; margin-top: 6px; outline: none; border-radius: 0; }
+    .file-warning { color: var(--mc-red); font-size: 0.8rem; font-weight: bold; display: none; margin-top: 6px; text-shadow: 1px 1px #000; background: rgba(0,0,0,0.5); padding: 4px 8px; border-left: 3px solid var(--mc-red); }
+    .track-item.needs-file .file-warning { display: block; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px; }
+    .form-group { margin-bottom: 10px; }
+    label { display: block; margin-bottom: 6px; font-weight: 700; font-size: 0.85rem; color: var(--mc-gold); text-shadow: 2px 2px #000; }
+    
+    input[type="text"], input[type="number"], select { width: 100%; padding: 10px; background: #101010; border: 2px solid #000; box-shadow: inset 2px 2px 0 var(--mc-border-dark), inset -2px -2px 0 var(--mc-border-light); color: #fff; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+    input[type="text"]:focus, select:focus { border-color: var(--mc-gold); box-shadow: inset 2px 2px 0 #2a2a2a, inset -2px -2px 0 var(--mc-gold); }
+    input[disabled] { background: #1e1e1e !important; color: #777777 !important; cursor: not-allowed; text-shadow: none; }
+    input[type="range"] { width: 100%; accent-color: var(--mc-gold); cursor: pointer; }
+
+    /* Minecraft Tarzı Renk Seçici (Color Picker) Düzeltmesi */
+    input[type="color"] { width: 100%; padding: 2px; border: 2px solid #000; background: #101010; box-shadow: inset 2px 2px 0 var(--mc-border-dark), inset -2px -2px 0 var(--mc-border-light); cursor: pointer; border-radius: 0; }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch { border: 2px solid #000; border-radius: 0; }
+
+    .craft-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+    .craft-card { background: #1e1e1e; border: 3px solid #000; box-shadow: inset 2px 2px 0 var(--mc-border-light), inset -2px -2px 0 var(--mc-border-dark); padding: 10px; text-align: center; }
+    .craft-card h4 { margin: 0 0 8px 0; font-size: 0.85rem; font-weight: 700; text-shadow: 2px 2px #000; }
+    .craft-matrix { display: grid; grid-template-columns: repeat(3, 34px); grid-gap: 2px; justify-content: center; margin-bottom: 8px; background: #101010; padding: 4px; border: 3px solid #000; box-shadow: inset 2px 2px 0 var(--mc-border-dark), inset -2px -2px 0 var(--mc-border-light); width: max-content; margin-left: auto; margin-right: auto; }
+    .craft-cell { width: 30px; height: 30px; background-color: var(--mc-slot-bg); border: 2px solid #373737; border-bottom-color: #ffffff; border-right-color: #ffffff; background-size: 24px 24px; background-repeat: no-repeat; background-position: center; image-rendering: pixelated; }
+    .craft-desc { font-size: 0.8rem; color: #ccc; text-shadow: 1px 1px #000; line-height: 1.3; }
+
+    /* İkonlar */
+    .ico-coal { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%23121212' d='M5 2h6v1H5zm-3 2h12v1H2zm-1 2h14v5H1zm1 5h12v1H2zm3 2h6v1H5z'/%3E%3Cpath fill='%231c1c20' d='M5 3h6v1H5zm-2 2h10v1H3zm-1 2h12v3H2zm1 3h10v1H3zm2 2h6v1H5z'/%3E%3Cpath fill='%232a2a30' d='M6 3h4v1H6zm-2 2h7v1H4zm-1 2h9v2H3zm2 3h6v1H5z'/%3E%3Cpath fill='%233f3f48' d='M7 4h2v1H7zm-2 2h4v1H5zm0 2h3v1H5z'/%3E%3Cpath fill='%23585864' d='M6 4h1v1H6zm1 2h1v1H7z'/%3E%3C/svg%3E"); }
+    .ico-stick { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%231a0f07' d='M13 1h2v2h-2zM11 3h2v2h-2zM9 5h2v2H9zM7 7h2v2H7zM5 9h2v2H5zM3 11h2v2H3zM1 13h2v2H1z'/%3E%3Cpath fill='%234e2e13' d='M13 2h1v1h-1zM11 4h1v1h-1zM9 6h1v1H9zM7 8h1v1H7zM5 10h1v1H5zM3 12h1v1H3zM1 14h1v1H1z'/%3E%3Cpath fill='%2370441b' d='M14 1h1v1h-1zM12 3h1v1h-1zM10 5h1v1h-1zM8 7h1v1H8zM6 9h1v1H6zM4 11h1v1H4zM2 13h1v1H2z'/%3E%3Cpath fill='%239c642d' d='M14 2h1v1h-1zM12 4h1v1h-1zM10 6h1v1H10zM8 8h1v1H8zM6 10h1v1H6zM4 12h1v1H4z'/%3E%3C/svg%3E"); }
+    .ico-button { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%232d1a0a' d='M4 5h8v6H4z'/%3E%3Cpath fill='%23a07040' d='M5 6h6v1H5z'/%3E%3Cpath fill='%2380542c' d='M5 7h6v2H5z'/%3E%3Cpath fill='%2354351a' d='M5 9h6v1H5z'/%3E%3C/svg%3E"); }
+    .ico-redstone { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%23400000' d='M5 6h6v5H5zM6 5h4v7H6z'/%3E%3Cpath fill='%23990000' d='M6 6h4v4H6z'/%3E%3Cpath fill='%23ff1a1a' d='M7 6h2v3H7zM6 7h4v1H6z'/%3E%3Cpath fill='%23ff9999' d='M7 7h1v1H7z'/%3E%3C/svg%3E"); }
+
+    .btn { width: 100%; padding: 14px; border: 3px solid #000; background: var(--mc-btn-bg); box-shadow: inset 2px 2px 0 var(--mc-border-light), inset -2px -2px 0 var(--mc-border-dark); color: #fff; font-weight: 700; font-size: 1rem; cursor: pointer; text-shadow: 2px 2px #000; margin-bottom: 10px; transition: background 0.1s, filter 0.1s; user-select: none; }
+    .btn:hover:not(:disabled) { background: var(--mc-btn-hover); color: var(--mc-yellow); }
+    .btn:active:not(:disabled) { background: var(--mc-btn-active); box-shadow: inset 2px 2px 0 var(--mc-border-dark), inset -2px -2px 0 var(--mc-border-light); padding: 15px 14px 13px 14px; /* Tıklama Hissiyatı */ }
+    
+    /* Buton Devre Dışı Bırakıldığında (Disabled) UX Düzenlemesi */
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(50%); color: #aaa; box-shadow: inset 2px 2px 0 #555, inset -2px -2px 0 #111; }
+    
+    .btn-build { background: #2e7d32; box-shadow: inset 3px 3px 0 #66bb6a, inset -3px -3px 0 #1b5e20; font-size: 1.1rem; padding: 16px; color: #ffffff; }
+    .btn-build:hover:not(:disabled) { background: #388e3c; color: var(--mc-yellow); }
+    .btn-secondary { background: #3a3a3a; }
+
+    .status-box { margin-top: 16px; padding: 14px; background: #101010; border: 3px solid #000; box-shadow: inset 2px 2px 0 var(--mc-border-dark), inset -2px -2px 0 var(--mc-border-light); display: none; }
+    .status-text { color: var(--mc-gold); font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; text-shadow: 2px 2px #000; }
+    .progress-bar-container { width: 100%; height: 18px; background: #000; border: 2px solid var(--mc-border-dark); overflow: hidden; position: relative; }
+    
+    /* Animasyonlu Minecraft Yükleme Çubuğu */
+    .progress-bar { 
+        width: 0%; 
+        height: 100%; 
+        background-color: var(--mc-green); 
+        background-image: linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent);
+        background-size: 20px 20px;
+        transition: width 0.3s ease; 
+        animation: loadingStripes 1s linear infinite;
+    }
+    
+    @keyframes loadingStripes {
+        from { background-position: 20px 0; }
+        to { background-position: 0 0; }
+    }
+
+    .footer-credits { text-align: center; margin-top: 18px; font-size: 0.9rem; color: var(--mc-aqua); font-weight: 700; text-shadow: 2px 2px #000; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-box">
+    <img id="appIconPreview" class="header-icon" title="Özel Logo Yüklemek İçin Tıklayın" onclick="triggerPackIconUpload()" alt="Minecraft Mod Icon">
+    <input type="file" id="packIconInput" accept="image/png, image/jpeg" style="display:none" onchange="loadCustomPackIcon(this)">
+    <div class="header-text">
+      <h1>Minecraft Music Mod</h1>
+      <p>tüm kullanıcılara ücretsiz (ve sende dahil)</p>
+    </div>
+  </div>
+
+  <div id="toastMessage" class="toast-message"></div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('tracksTab', this)">🎵 1. Müzik Stüdyosu</button>
+    <button class="tab-btn" onclick="switchTab('itemsTab', this)">🎨 2. İtem Renk & Stiller</button>
+    <button class="tab-btn" onclick="switchTab('metaTab', this)">⚙️ 3. Paket Ayarları</button>
+    <button class="tab-btn" onclick="switchTab('projectTab', this)">📁 4. Proje Kaydet / Yükle</button>
+  </div>
+
+  <div id="tracksTab" class="tab-content active">
+    <div class="mc-panel">
+      <div class="panel-title">🎼 TOPLU VEYA TEKLİ ŞARKI YÜKLEME</div>
+      
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('batchFileInput').click()">
+        <div style="font-size: 2.2rem; margin-bottom: 6px;">📥</div>
+        <div style="font-weight: 700; color: var(--mc-gold); text-shadow: 2px 2px #000;">Müzik Dosyalarınızı Buraya Sürükleyin</div>
+        <div style="font-size: 0.8rem; color: #aaa; margin-top: 4px; text-shadow: 1px 1px #000;">Toplu seçim için tıklayın (MP3, WAV, OGG)</div>
+      </div>
+      <input type="file" id="batchFileInput" multiple accept="audio/*" style="display:none" onchange="handleBatchSelect(this)">
+
+      <div id="tracksContainer" class="track-list"></div>
+
+      <button class="btn btn-secondary" onclick="addTrackInput()">+ Boş Parça Ekle</button>
+    </div>
+  </div>
+
+  <div id="itemsTab" class="tab-content">
+    <div class="mc-panel">
+      <div class="panel-title">🎨 ÖZEL İTEM RENKLERİ VE TEMALAR</div>
+      <p style="font-size: 0.8rem; color: #ccc; margin-bottom: 12px; text-shadow: 1px 1px #000;">Mod içinde oluşturulacak kumanda disklerinin renklerini ayarlayın:</p>
+
+      <div class="form-grid">
+        <div class="form-group"><label>Başlatıcı Renk:</label><input type="color" id="colorStart" value="#2e7d32" style="height:44px;" onchange="renderAllIcons()"></div>
+        <div class="form-group"><label>Durdurucu Renk:</label><input type="color" id="colorStop" value="#d32f2f" style="height:44px;" onchange="renderAllIcons()"></div>
+        <div class="form-group"><label>Sonraki Parça Renk:</label><input type="color" id="colorNext" value="#00bcd4" style="height:44px;" onchange="renderAllIcons()"></div>
+        <div class="form-group"><label>Önceki Parça Renk:</label><input type="color" id="colorPrev" value="#ffaa00" style="height:44px;" onchange="renderAllIcons()"></div>
+        <div class="form-group"><label>Rastgele Çalma Renk:</label><input type="color" id="colorRandom" value="#ab47bc" style="height:44px;" onchange="renderAllIcons()"></div>
+      </div>
+    </div>
+
+    <div class="mc-panel">
+      <div class="panel-title">📖 OYUN İÇİ CRAFTING REHBERİ (MINECRAFT TARİFLERİ)</div>
+      <div class="craft-grid">
+        <div class="craft-card">
+          <h4 style="color:#ff5555;">❌ Müzik Durdurucu</h4>
+          <div class="craft-matrix">
+            <div class="craft-cell ico-stick"></div><div class="craft-cell"></div><div class="craft-cell ico-stick"></div>
+            <div class="craft-cell"></div><div class="craft-cell ico-coal"></div><div class="craft-cell"></div>
+            <div class="craft-cell ico-stick"></div><div class="craft-cell"></div><div class="craft-cell ico-stick"></div>
+          </div>
+          <div class="craft-desc">Çubuk & Kömür<br>Müziği tamamen keser.</div>
+        </div>
+        <div class="craft-card">
+          <h4 style="color:#55ff55;">✅ Müzik Başlatıcı</h4>
+          <div class="craft-matrix">
+            <div class="craft-cell"></div><div class="craft-cell"></div><div class="craft-cell ico-stick"></div>
+            <div class="craft-cell"></div><div class="craft-cell ico-stick"></div><div class="craft-cell"></div>
+            <div class="craft-cell ico-stick"></div><div class="craft-cell"></div><div class="craft-cell ico-stick"></div>
+          </div>
+          <div class="craft-desc">Çubuk<br>O anki şarkıyı çalar.</div>
+        </div>
+        <div class="craft-card">
+          <h4 style="color:#55ffff;">▶️ Sonraki Parça</h4>
+          <div class="craft-matrix">
+            <div class="craft-cell"></div><div class="craft-cell"></div><div class="craft-cell"></div>
+            <div class="craft-cell"></div><div class="craft-cell ico-button"></div><div class="craft-cell"></div>
+            <div class="craft-cell"></div><div class="craft-cell"></div><div class="craft-cell"></div>
+          </div>
+          <div class="craft-desc">Ahşap Düğme<br>Sıradaki parçaya atlar.</div>
+        </div>
+        <div class="craft-card">
+          <h4 style="color:#ff55ff;">🔀 Rastgele Parça</h4>
+          <div class="craft-matrix">
+            <div class="craft-cell"></div><div class="craft-cell ico-redstone"></div><div class="craft-cell"></div>
+            <div class="craft-cell"></div><div class="craft-cell ico-button"></div><div class="craft-cell"></div>
+            <div class="craft-cell"></div><div class="craft-cell"></div><div class="craft-cell"></div>
+          </div>
+          <div class="craft-desc">Kızıltaş & Ahşap Düğme<br>Rastgele bir şarkı seçer.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="metaTab" class="tab-content">
+    <div class="mc-panel">
+      <div class="panel-title">🏷️ MOD PAKETİ DETAYLARI</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Müzik Liste ID (Sadece Harf):</label>
+          <input type="text" id="listName" value="favorilerim" placeholder="örneğin: favorilerim">
+        </div>
+        <div class="form-group">
+          <label>Mod Başlığı:</label>
+          <input type="text" id="packTitle" value="Pro Özel Müzik Paketi">
+        </div>
+        <div class="form-group">
+          <label>Geliştirici / Yazar (Kalıcı):</label>
+          <input type="text" id="packAuthorInput" value="@yabilgi_yakomik" disabled readonly>
+        </div>
+        <div class="form-group">
+          <label>Bedrock Ses Kategorisi:</label>
+          <select id="soundCategory">
+            <option value="music" selected>Müzik (Arka Plan Fon)</option>
+            <option value="record">Plak (Jukebox / Müzik Kutusu)</option>
+            <option value="ambient">Ortam (Ambient)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="color: var(--mc-green);">Herkes Duysun mu? (Müzik Yayını):</label>
+          <select id="broadcastMode">
+            <option value="yes" selected>EVET (Sunucudaki Herkes Duyar - @a)</option>
+            <option value="no">HAYIR (Sadece Ben Duyayım - @s)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="projectTab" class="tab-content">
+    <div class="mc-panel">
+      <div class="panel-title">💾 PROJEYİ DIŞA AKTAR VE YÜKLE</div>
+      <p style="font-size: 0.8rem; color: #ccc; margin-bottom: 12px; text-shadow: 1px 1px #000;">Proje ayarlarınızı JSON dosyası olarak kaydedip daha sonra tekrar düzenleyebilirsiniz:</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="exportProjectJSON()">💾 Projeyi JSON Olarak Kaydet</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('importJsonInput').click()">📂 JSON Proje Dosyası Yükle</button>
+      </div>
+      <input type="file" id="importJsonInput" accept=".json" style="display:none" onchange="importProjectJSON(this)">
+    </div>
+  </div>
+
+  <button class="btn btn-build" id="buildBtn" onclick="processAndGeneratePack()">🚀 .MCAddon Mod Dosyasını Oluştur ve İndir</button>
+
+  <div id="statusBox" class="status-box">
+    <div id="statusText" class="status-text">Hazırlanıyor...</div>
+    <div class="progress-bar-container">
+      <div id="progressBar" class="progress-bar"></div>
+    </div>
+  </div>
+
+  <div class="footer-credits">
+    Geliştirici: @yabilgi_yakomik
+  </div>
+</div>
+
+<script>
+  const FIXED_DEVELOPER = "@yabilgi_yakomik";
+
+  let globalAudioCtx = null;
+  function getSharedAudioContext() {
+      if (!globalAudioCtx || globalAudioCtx.state === 'closed') {
+          globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return globalAudioCtx;
+  }
+
+  let customPackIconBlob = null;
+  let trackCounter = 0;
+
+  window.onload = async () => {
+    const iconBlob = await createExactIconBlob('icon');
+    document.getElementById('appIconPreview').src = URL.createObjectURL(iconBlob);
+    addTrackInput();
+    setupDragAndDrop();
+  };
+
+  function showToast(text) {
+    const toast = document.getElementById('toastMessage');
+    toast.innerText = text;
+    toast.style.display = 'block';
+    toast.style.animation = 'none';
+    toast.offsetHeight; 
+    toast.style.animation = 'popIn 0.2s ease-out';
+    setTimeout(() => { toast.style.display = 'none'; }, 3500);
+  }
+
+  function switchTab(tabId, element) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    element.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+  }
+
+  function triggerPackIconUpload() {
+    document.getElementById('packIconInput').click();
+  }
+
+  function loadCustomPackIcon(input) {
+    if (input.files && input.files[0]) {
+      customPackIconBlob = input.files[0];
+      document.getElementById('appIconPreview').src = URL.createObjectURL(customPackIconBlob);
+      showToast("Özel mod logosu başarıyla yüklendi!");
+    }
+  }
+
+  function setupDragAndDrop() {
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) addBatchFiles(e.dataTransfer.files);
+    });
+  }
+
+  function createExactIconBlob(type) {
+    const canvas = document.createElement('canvas');
+    canvas.width = (type === 'icon') ? 64 : 16;
+    canvas.height = (type === 'icon') ? 64 : 16;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    const cStart = document.getElementById('colorStart')?.value || '#2e7d32';
+    const cStop = document.getElementById('colorStop')?.value || '#d32f2f';
+    const cNext = document.getElementById('colorNext')?.value || '#00bcd4';
+    const cPrev = document.getElementById('colorPrev')?.value || '#ffaa00';
+    const cRandom = document.getElementById('colorRandom')?.value || '#ab47bc';
+
+    if (type === 'icon') {
+      ctx.fillStyle = '#16171d'; ctx.fillRect(0, 0, 64, 64);
+      ctx.fillStyle = '#2e7d32'; ctx.fillRect(4, 4, 56, 56);
+      ctx.fillStyle = '#388e3c'; ctx.fillRect(6, 6, 52, 52);
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 36px sans-serif'; ctx.fillText('🎵', 14, 46);
+    } else {
+      ctx.clearRect(0, 0, 16, 16);
+      ctx.fillStyle = '#08080a';
+      ctx.fillRect(4, 1, 8, 14); ctx.fillRect(1, 4, 14, 8); ctx.fillRect(2, 2, 12, 12);
+      let color = '#ffffff';
+      if (type === 'start') color = cStart;
+      else if (type === 'stop') color = cStop;
+      else if (type === 'next') color = cNext;
+      else if (type === 'prev') color = cPrev;
+      else if (type === 'random') color = cRandom;
+      ctx.fillStyle = color;
+      ctx.fillRect(3, 3, 10, 10);
+      ctx.fillStyle = '#ffffff';
+      if (type === 'stop') { ctx.fillRect(5, 5, 6, 6); }
+      else if (type === 'start') { ctx.fillRect(5, 4, 2, 8); ctx.fillRect(7, 5, 2, 6); ctx.fillRect(9, 6, 2, 4); }
+      else if (type === 'next') { ctx.fillRect(4, 5, 2, 6); ctx.fillRect(7, 5, 2, 6); ctx.fillRect(10, 5, 2, 6); }
+      else if (type === 'prev') { ctx.fillRect(10, 5, 2, 6); ctx.fillRect(7, 5, 2, 6); ctx.fillRect(4, 5, 2, 6); }
+      else if (type === 'random') { ctx.fillRect(4, 4, 2, 2); ctx.fillRect(10, 4, 2, 2); ctx.fillRect(6, 6, 4, 4); ctx.fillRect(4, 10, 2, 2); ctx.fillRect(10, 10, 2, 2); }
+    }
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  }
+
+  function renderAllIcons() { showToast("İtem renkleri geçici belleğe kaydedildi!"); }
+  function handleBatchSelect(input) { if (input.files && input.files.length > 0) { addBatchFiles(input.files); } input.value = ''; }
+
+  function addBatchFiles(files) {
+    let added = 0;
+    for (let file of files) {
+      if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|ogg|m4a|flac)$/i)) {
+        const emptyTrack = Array.from(document.querySelectorAll('.track-item')).find(item => !item._audioFile);
+        if (emptyTrack && added === 0) setupTrackWithFile(emptyTrack, file);
+        else addTrackInput(file);
+        added++;
+      }
+    }
+    if (added > 0) showToast(`${added} müzik dosyası eklendi!`);
+  }
+
+  function addTrackInput(file = null, preloadData = null) {
+    const container = document.getElementById('tracksContainer');
+    const div = document.createElement('div');
+    trackCounter++;
+    div.className = 'track-item';
+    div.id = `track_${trackCounter}`;
+
+    let defaultTitle = "Yeni Şarkı";
+    let defaultVol = 100, defaultSpeed = 10, defaultChannel = 'stereo';
+
+    if (preloadData) {
+        defaultTitle = preloadData.title || defaultTitle;
+        defaultVol = preloadData.vol || defaultVol;
+        defaultSpeed = preloadData.speed || defaultSpeed;
+        defaultChannel = preloadData.channel || defaultChannel;
+        div.classList.add('needs-file'); 
+    } else if (file) {
+        defaultTitle = file.name.replace(/\.[^/.]+$/, "");
+    }
+
+    div.innerHTML = `
+      <div class="track-header">
+        <span class="track-title">🎵 Parça</span>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-action-small" onclick="moveTrackUp(this)">▲ Yukarı</button>
+          <button class="btn-action-small" onclick="moveTrackDown(this)">▼ Aşağı</button>
+          <button class="btn-remove" onclick="removeTrack(this)">Kaldır</button>
+        </div>
+      </div>
+      <div class="track-controls">
+        <div><label>Şarkı İsmi (Oyunda Görünür):</label><input type="text" class="track-name-input" value="${defaultTitle.replace(/"/g, '&quot;')}"></div>
+        <div><label>Ses Seviyesi Boost: <span class="vol-val">${defaultVol}%</span></label><input type="range" class="track-vol-slider" min="20" max="250" value="${defaultVol}" oninput="this.previousElementSibling.children[0].innerText=this.value+'%'"></div>
+        <div><label>Oynatma Hızı: <span class="speed-val">${(defaultSpeed/10).toFixed(1)}x</span></label><input type="range" class="track-speed-slider" min="8" max="15" value="${defaultSpeed}" step="1" oninput="this.previousElementSibling.children[0].innerText=(this.value/10).toFixed(1)+'x'"></div>
+        <div><label>Kanal Modu:</label>
+          <select class="track-channel-select">
+            <option value="stereo" ${defaultChannel === 'stereo' ? 'selected' : ''}>Stereo (Normal)</option>
+            <option value="mono" ${defaultChannel === 'mono' ? 'selected' : ''}>Mono (3D Ses)</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <input type="file" class="track-file" accept="audio/*" onchange="handleSingleFileChange(this)">
+        <p class="file-warning">⚠️ JSON'dan yüklendi: Lütfen bu parça için ses dosyasını tekrar seçin!</p>
+        <audio class="audio-preview" controls style="display:none;"></audio>
+      </div>
+    `;
+    container.appendChild(div);
+    if (file) setupTrackWithFile(div, file);
+    updateTrackNumbers();
+  }
+
+  function setupTrackWithFile(trackDiv, file) {
+      trackDiv._audioFile = file;
+      trackDiv.classList.remove('needs-file');
+      const fileInput = trackDiv.querySelector('.track-file');
+      const nameInput = trackDiv.querySelector('.track-name-input');
+      if(nameInput.value === "Yeni Şarkı" || nameInput.value === "") nameInput.value = file.name.replace(/\.[^/.]+$/, "");
+      try {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+      } catch(e) {}
+      previewAudio(fileInput, file);
+  }
+
+  function handleSingleFileChange(input) {
+      const item = input.closest('.track-item');
+      if (input.files && input.files[0]) setupTrackWithFile(item, input.files[0]);
+      else { item._audioFile = null; item.classList.add('needs-file'); previewAudio(input, null); }
+  }
+
+  function moveTrackUp(btn) { const item = btn.closest('.track-item'); if (item.previousElementSibling) { item.parentNode.insertBefore(item, item.previousElementSibling); updateTrackNumbers(); } }
+  function moveTrackDown(btn) { const item = btn.closest('.track-item'); if (item.nextElementSibling) { item.parentNode.insertBefore(item.nextElementSibling, item); updateTrackNumbers(); } }
+
+  function previewAudio(input, directFile = null) {
+    const file = directFile || (input.files && input.files[0]);
+    const audioEl = input.parentElement.querySelector('.audio-preview');
+    if (file) {
+      if(audioEl.src) URL.revokeObjectURL(audioEl.src);
+      audioEl.src = URL.createObjectURL(file);
+      audioEl.style.display = 'block';
+    } else {
+      audioEl.style.display = 'none';
+      if(audioEl.src) URL.revokeObjectURL(audioEl.src);
+      audioEl.src = "";
+    }
+  }
+
+  function removeTrack(btn) { 
+    const item = btn.closest('.track-item');
+    const audioEl = item.querySelector('.audio-preview');
+    if(audioEl && audioEl.src) URL.revokeObjectURL(audioEl.src); 
+    item.remove(); 
+    updateTrackNumbers(); 
+  }
+
+  function updateTrackNumbers() { 
+    document.querySelectorAll('.track-item').forEach((item, index) => { 
+      item.querySelector('.track-title').innerHTML = `🎵 Parça #${index + 1}`; 
+    }); 
+  }
+
+  function generateUUID() { 
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { 
+      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8); 
+      return v.toString(16); 
+    }); 
+  }
+
+  async function renderAudioWav(file, volumeGain, speedRate, isMono) {
+    const arrayBuffer = await file.arrayBuffer();
+    const tempCtx = getSharedAudioContext();
+    let decodedData;
+    
+    try {
+      decodedData = await new Promise((resolve, reject) => { tempCtx.decodeAudioData(arrayBuffer, resolve, reject); });
+    } catch (err) {
+      throw new Error("Ses dosyası çözümlenemedi veya bozuk.");
+    }
+
+    const targetSampleRate = 44100; 
+    const targetChannels = isMono ? 1 : Math.min(decodedData.numberOfChannels, 2);
+    
+    let duration = decodedData.duration / speedRate;
+    if (!duration || isNaN(duration) || duration <= 0) duration = 1; 
+
+    const durationTicks = Math.ceil(duration * 20);
+    const totalFrames = Math.max(1, Math.ceil(duration * targetSampleRate));
+
+    const offlineCtx = new OfflineAudioContext(targetChannels, totalFrames, targetSampleRate);
+    const source = offlineCtx.createBufferSource();
+    source.buffer = decodedData;
+    source.playbackRate.value = speedRate;
+
+    const compressor = offlineCtx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-10, offlineCtx.currentTime);
+    compressor.knee.setValueAtTime(40, offlineCtx.currentTime);
+    compressor.ratio.setValueAtTime(12, offlineCtx.currentTime);
+    compressor.attack.setValueAtTime(0, offlineCtx.currentTime);
+    compressor.release.setValueAtTime(0.25, offlineCtx.currentTime);
+
+    const gainNode = offlineCtx.createGain();
+    gainNode.gain.value = volumeGain;
+
+    source.connect(gainNode);
+    gainNode.connect(compressor);
+    compressor.connect(offlineCtx.destination);
+    
+    source.start(0);
+
+    const renderedBuffer = await offlineCtx.startRendering();
+
+    const numChannels = renderedBuffer.numberOfChannels;
+    const numSamples = renderedBuffer.length;
+    const bitDepth = 16;
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    const byteRate = targetSampleRate * blockAlign;
+    const dataSize = numSamples * blockAlign;
+    const bufferSize = 44 + dataSize;
+
+    const buffer = new ArrayBuffer(bufferSize);
+    const view = new DataView(buffer);
+
+    function writeStr(offset, str) { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); }
+
+    writeStr(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); writeStr(8, 'WAVE'); writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, numChannels, true);
+    view.setUint32(24, targetSampleRate, true); view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true); view.setUint16(34, bitDepth, true); writeStr(36, 'data'); view.setUint32(40, dataSize, true);
+
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        let sample = renderedBuffer.getChannelData(ch)[i];
+        sample = Math.max(-1, Math.min(1, sample));
+        sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(offset, sample, true);
+        offset += 2;
+      }
+    }
+
+    decodedData = null; 
+    source.disconnect();
+    gainNode.disconnect();
+    compressor.disconnect();
+    
+    return { blob: new Blob([buffer], { type: 'audio/wav' }), ticks: durationTicks };
+  }
+
+  function exportProjectJSON() {
+    const tracksMeta = [];
+    document.querySelectorAll('.track-item').forEach(item => {
+      tracksMeta.push({
+        title: item.querySelector('.track-name-input').value,
+        vol: item.querySelector('.track-vol-slider').value,
+        speed: item.querySelector('.track-speed-slider').value,
+        channel: item.querySelector('.track-channel-select').value
+      });
+    });
+
+    const projectData = {
+      listName: document.getElementById('listName').value, 
+      packTitle: document.getElementById('packTitle').value,
+      packAuthor: FIXED_DEVELOPER, 
+      soundCategory: document.getElementById('soundCategory').value, 
+      broadcastMode: document.getElementById('broadcastMode').value,
+      colors: {
+        start: document.getElementById('colorStart').value,
+        stop: document.getElementById('colorStop').value,
+        next: document.getElementById('colorNext').value,
+        prev: document.getElementById('colorPrev').value,
+        random: document.getElementById('colorRandom').value
+      },
+      tracks: tracksMeta
+    };
+
+    saveAs(new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' }), `${projectData.listName || 'proje'}_yedek.json`);
+    showToast("Proje JSON dosyası indirildi!");
+  }
+
+  function importProjectJSON(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.listName) document.getElementById('listName').value = data.listName;
+        if (data.packTitle) document.getElementById('packTitle').value = data.packTitle;
+        if (data.soundCategory) document.getElementById('soundCategory').value = data.soundCategory;
+        if (data.broadcastMode) document.getElementById('broadcastMode').value = data.broadcastMode;
+        
+        if (data.colors) {
+            document.getElementById('colorStart').value = data.colors.start || '#2e7d32';
+            document.getElementById('colorStop').value = data.colors.stop || '#d32f2f';
+            document.getElementById('colorNext').value = data.colors.next || '#00bcd4';
+            document.getElementById('colorPrev').value = data.colors.prev || '#ffaa00';
+            document.getElementById('colorRandom').value = data.colors.random || '#ab47bc';
+            renderAllIcons();
+        }
+
+        if (data.tracks && Array.isArray(data.tracks)) {
+            document.getElementById('tracksContainer').innerHTML = ''; trackCounter = 0; 
+            data.tracks.forEach(trackData => { addTrackInput(null, trackData); });
+            showToast("Proje yapısı yüklendi! Lütfen ses dosyalarını seçin."); switchTab('tracksTab', document.querySelector('.tab-btn')); 
+        } else showToast("Proje ayarları yüklendi.");
+      } catch (err) { showToast("Hatalı JSON proje dosyası!"); } finally { input.value = ''; }
+    };
+    reader.readAsText(input.files[0]);
+  }
+
+  async function processAndGeneratePack() {
+    const rawListName = document.getElementById('listName').value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || "favorilerim";
+    const packTitle = document.getElementById('packTitle').value.trim() || "Pro Müzik Paketi";
+    const packAuthor = FIXED_DEVELOPER;
+    const category = document.getElementById('soundCategory').value;
+    const broadcastMode = document.getElementById('broadcastMode').value;
+    
+    const isGlobal = broadcastMode === 'yes';
+    const targetSelector = isGlobal ? '@a' : '@s';
+    const timerEntity = isGlobal ? '#music_sys' : '@s';
+
+    const trackItems = document.querySelectorAll('.track-item');
+
+    if (trackItems.length === 0) { showToast("Lütfen en az bir müzik ekleyin!"); return; }
+
+    let missingFiles = false;
+    trackItems.forEach((item) => { if (!item._audioFile) { item.classList.add('needs-file'); missingFiles = true; } });
+    if(missingFiles) { showToast("Eksik ses dosyaları var! Kırmızı işaretleri kontrol edin."); return; }
+
+    const statusBox = document.getElementById('statusBox'); const statusText = document.getElementById('statusText');
+    const progressBar = document.getElementById('progressBar'); const buildBtn = document.getElementById('buildBtn');
+    statusBox.style.display = 'block'; buildBtn.disabled = true;
+
+    const resourceZip = new JSZip(); const behaviorZip = new JSZip();
+    const rpUUID = generateUUID(); const bpUUID = generateUUID();
+    const trackTitles = []; const trackDurations = [];
+
+    const soundDefinitionsObj = { "format_version": "1.14.0", "sound_definitions": {} };
+
+    try {
+      for (let i = 0; i < trackItems.length; i++) {
+        const itemEl = trackItems[i]; const file = itemEl._audioFile;
+        const trackTitle = (itemEl.querySelector('.track-name-input').value.trim().replace(/["\\$#@=]/g, '')) || `Parça ${i + 1}`;
+        
+        const gainVal = parseFloat(itemEl.querySelector('.track-vol-slider').value || 100) / 100.0;
+        const speedVal = parseFloat(itemEl.querySelector('.track-speed-slider').value || 10) / 10.0;
+        const isMono = itemEl.querySelector('.track-channel-select').value === 'mono';
+
+        trackTitles.push(trackTitle);
+        statusText.innerText = `[${i + 1}/${trackItems.length}] "${trackTitle}" İşleniyor...`;
+        progressBar.style.width = `${Math.round(((i + 1) / trackItems.length) * 60)}%`;
+
+        let wavData;
+        try { wavData = await renderAudioWav(file, gainVal, speedVal, isMono); } 
+        catch(audioErr) { itemEl.classList.add('needs-file'); throw new Error(`"${trackTitle}" hatası: ${audioErr.message}`); }
+        
+        const soundKey = `custom_music.${rawListName}_track_${i + 1}`;
+        trackDurations.push(wavData.ticks);
+        resourceZip.file(`sounds/music/${rawListName}/track_${i + 1}.wav`, wavData.blob, { compression: "STORE" });
+
+        soundDefinitionsObj.sound_definitions[soundKey] = {
+          "category": category,
+          "sounds": [{ "name": `sounds/music/${rawListName}/track_${i + 1}`, "stream": true, "volume": 1.0, "load_on_low_memory": true }]
+        };
+      }
+
+      statusText.innerText = "Bedrock Gelişmiş Komut Mimari Kuruluyor...";
+      progressBar.style.width = "80%";
+
+      const packIconBlob = customPackIconBlob || await createExactIconBlob('icon');
+      resourceZip.file("pack_icon.png", packIconBlob); behaviorZip.file("pack_icon.png", packIconBlob);
+
+      resourceZip.file("textures/items/music_stop.png", await createExactIconBlob('stop'));
+      resourceZip.file("textures/items/music_start.png", await createExactIconBlob('start'));
+      resourceZip.file("textures/items/music_next.png", await createExactIconBlob('next'));
+      resourceZip.file("textures/items/music_prev.png", await createExactIconBlob('prev'));
+      resourceZip.file("textures/items/music_random.png", await createExactIconBlob('random'));
+
+      resourceZip.file("textures/item_texture.json", JSON.stringify({
+        "resource_pack_name": "music_mod_studio_v2", 
+        "texture_name": "atlas.items",
+        "texture_data": {
+          "music_stop": { "textures": "textures/items/music_stop" },
+          "music_start": { "textures": "textures/items/music_start" },
+          "music_next": { "textures": "textures/items/music_next" },
+          "music_prev": { "textures": "textures/items/music_prev" },
+          "music_random": { "textures": "textures/items/music_random" }
+        }
+      }, null, 2));
+
+      const langContent = `item.music:stop.name=§cMüzik Durdurucu\nitem.music:start.name=§aMüzik Başlatıcı\nitem.music:next.name=§bSonraki Parça\nitem.music:prev.name=§eÖnceki Parça\nitem.music:random.name=§dRastgele Çalma\npack.name=${packTitle} RP\npack.description=${packAuthor} Müzik Modu`;
+      resourceZip.file("texts/languages.json", JSON.stringify(["en_US", "tr_TR"], null, 2));
+      resourceZip.file("texts/en_US.lang", langContent); resourceZip.file("texts/tr_TR.lang", langContent);
+
+      const createBehaviorItem = (id, displayName, texName) => ({
+        "format_version": "1.21.20",
+        "minecraft:item": {
+          "description": { "identifier": id, "menu_category": { "category": "equipment", "group": "itemGroup.name.misc" } },
+          "components": { "minecraft:icon": texName, "minecraft:display_name": { "value": displayName }, "minecraft:max_stack_size": 1, "minecraft:custom_components": [ "music:trigger" ], "minecraft:cooldown": { "category": "music_player", "duration": 0.5 } }
+        }
+      });
+
+      behaviorZip.file("items/music_stop.json", JSON.stringify(createBehaviorItem("music:stop", "§cMüzik Durdurucu", "music_stop"), null, 2));
+      behaviorZip.file("items/music_start.json", JSON.stringify(createBehaviorItem("music:start", "§aMüzik Başlatıcı", "music_start"), null, 2));
+      behaviorZip.file("items/music_next.json", JSON.stringify(createBehaviorItem("music:next", "§bSonraki Parça", "music_next"), null, 2));
+      behaviorZip.file("items/music_prev.json", JSON.stringify(createBehaviorItem("music:prev", "§eÖnceki Parça", "music_prev"), null, 2));
+      behaviorZip.file("items/music_random.json", JSON.stringify(createBehaviorItem("music:random", "§dRastgele Çalma", "music_random"), null, 2));
+
+      const createRecipe = (id, pattern, key, result) => ({
+        "format_version": "1.21.20",
+        "minecraft:recipe_shaped": {
+            "description": { "identifier": id },
+            "tags": ["crafting_table"],
+            "pattern": pattern, "key": key,
+            "unlock": [ { "context": "AlwaysUnlocked" } ],
+            "result": { "item": result, "count": 1 }
+        }
+      });
+
+      behaviorZip.file("recipes/music_stop.json", JSON.stringify(createRecipe("music:stop_recipe", ["S S", " C ", "S S"], { "S": { "item": "minecraft:stick" }, "C": { "item": "minecraft:coal" } }, "music:stop"), null, 2));
+      behaviorZip.file("recipes/music_start.json", JSON.stringify(createRecipe("music:start_recipe", ["  S", " S ", "S  "], { "S": { "item": "minecraft:stick" } }, "music:start"), null, 2));
+      behaviorZip.file("recipes/music_next.json", JSON.stringify(createRecipe("music:next_recipe", ["   ", " B ", "   "], { "B": { "item": "minecraft:wooden_button" } }, "music:next"), null, 2));
+      behaviorZip.file("recipes/music_prev.json", JSON.stringify(createRecipe("music:prev_recipe", ["S  ", " S ", "  S"], { "S": { "item": "minecraft:stick" } }, "music:prev"), null, 2));
+      behaviorZip.file("recipes/music_random.json", JSON.stringify(createRecipe("music:random_recipe", [" R ", " B ", "   "], { "R": { "item": "minecraft:redstone" }, "B": { "item": "minecraft:wooden_button" } }, "music:random"), null, 2));
+
+      const mainJsContent = `import { world, system } from "@minecraft/server";
+
+world.afterEvents.worldInitialize.subscribe(() => {
+    system.runTimeout(() => {
+        try {
+            const overworld = world.getDimension("overworld");
+            overworld.runCommandAsync("scoreboard objectives add mb_music_id dummy").catch(()=>{});
+            overworld.runCommandAsync("scoreboard objectives add mb_music_timer dummy").catch(()=>{});
+        } catch(e) {}
+    }, 20);
+});
+
+const cooldowns = new Map();
+const VALID_ITEMS = ["music:stop", "music:start", "music:next", "music:prev", "music:random"];
+
+function triggerMusicCommand(typeId, player) {
+    if(!VALID_ITEMS.includes(typeId)) return; 
+
+    const now = Date.now();
+    const pid = player.id || player.name;
+    const lastUsed = cooldowns.get(pid) || 0;
+    
+    if (now - lastUsed < 500) return;
+    cooldowns.set(pid, now);
+    
+    system.run(() => {
+        const uniqueTag = "mcmd_" + Math.floor(Math.random() * 1000000);
+        try {
+            player.addTag(uniqueTag);
+            
+            system.runTimeout(() => {
+                try { player.removeTag(uniqueTag); } catch(ex){}
+            }, 40);
+            
+            let func = typeId.replace("music:", "") + "_sound";
+
+            player.dimension.runCommandAsync(\`execute as @a[tag=\${uniqueTag}] at @s run function \${func}\`)
+            .finally(() => { try { player.removeTag(uniqueTag); } catch(ex){} });
+            
+        } catch(e) {
+            try { player.removeTag(uniqueTag); } catch(ex){}
+        } 
+    });
+}
+
+world.beforeEvents.worldInitialize.subscribe((initEvent) => {
+    try { initEvent.itemComponentRegistry.registerCustomComponent("music:trigger", { onUse(event) { triggerMusicCommand(event.itemStack.typeId, event.source); } }); } catch(e) {}
+});
+
+world.afterEvents.itemUse.subscribe((event) => {
+    triggerMusicCommand(event.itemStack.typeId, event.source);
+});
+`;
+      behaviorZip.file("scripts/main.js", mainJsContent);
+
+      const totalTracks = trackItems.length;
+
+      let stopAllSoundsCmd = "";
+      for (let i = 1; i <= totalTracks; i++) { stopAllSoundsCmd += `stopsound ${targetSelector} custom_music.${rawListName}_track_${i}\n`; }
+
+      behaviorZip.file("functions/stop_sound_silent.mcfunction", stopAllSoundsCmd);
+      behaviorZip.file("functions/stop_sound.mcfunction", `function stop_sound_silent\ntitle ${targetSelector} actionbar §c⏹️ Müzik Durduruldu!\nscoreboard players set ${timerEntity} mb_music_timer -1\n`);
+
+      let playSoundFunc = `scoreboard players add ${timerEntity} mb_music_id 0\n`; 
+      playSoundFunc += `execute if score ${timerEntity} mb_music_id matches 0 run scoreboard players set ${timerEntity} mb_music_id 1\n`;
+      playSoundFunc += `function stop_sound_silent\n`;
+
+      for (let i = 0; i < totalTracks; i++) {
+        const idx = i + 1;
+        const soundKey = `custom_music.${rawListName}_track_${idx}`;
+        const title = trackTitles[i];
+        const ticks = trackDurations[i]; 
+
+        playSoundFunc += `execute if score ${timerEntity} mb_music_id matches ${idx} run playsound ${soundKey} ${targetSelector}\n`;
+        playSoundFunc += `execute if score ${timerEntity} mb_music_id matches ${idx} run title ${targetSelector} actionbar §a🎶 Çalıyor [${idx}/${totalTracks}]: §f${title}\n`;
+        playSoundFunc += `execute if score ${timerEntity} mb_music_id matches ${idx} run scoreboard players set ${timerEntity} mb_music_timer ${ticks}\n`;
+      }
+      behaviorZip.file("functions/play_sound.mcfunction", playSoundFunc);
+
+      let nextSoundFunc = `scoreboard players add ${timerEntity} mb_music_id 1\n`;
+      nextSoundFunc += `execute if score ${timerEntity} mb_music_id matches ${totalTracks + 1}.. run scoreboard players set ${timerEntity} mb_music_id 1\n`;
+      nextSoundFunc += `function play_sound\n`;
+      behaviorZip.file("functions/next_sound.mcfunction", nextSoundFunc);
+
+      let prevSoundFunc = `scoreboard players remove ${timerEntity} mb_music_id 1\n`;
+      prevSoundFunc += `execute if score ${timerEntity} mb_music_id matches ..0 run scoreboard players set ${timerEntity} mb_music_id ${totalTracks}\n`;
+      prevSoundFunc += `function play_sound\n`;
+      behaviorZip.file("functions/prev_sound.mcfunction", prevSoundFunc);
+
+      let randomSoundFunc = `scoreboard players random ${timerEntity} mb_music_id 1 ${totalTracks}\n`;
+      randomSoundFunc += `function play_sound\n`;
+      behaviorZip.file("functions/random_sound.mcfunction", randomSoundFunc);
+
+      behaviorZip.file("tick.json", JSON.stringify({ values: ["tick"] }, null, 2));
+      
+      let tickFunc = "";
+      if (isGlobal) {
+          tickFunc += `execute if score ${timerEntity} mb_music_timer matches 1.. run scoreboard players remove ${timerEntity} mb_music_timer 1\n`;
+          tickFunc += `execute if score ${timerEntity} mb_music_timer matches 0 run function next_sound\n`;
+          tickFunc += `execute if score ${timerEntity} mb_music_timer matches 0 run scoreboard players set ${timerEntity} mb_music_timer -1\n`;
+      } else {
+          tickFunc += `execute as @a[scores={mb_music_timer=1..}] run scoreboard players remove @s mb_music_timer 1\n`;
+          tickFunc += `tag @a[scores={mb_music_timer=0}] add change_song\n`;
+          tickFunc += `scoreboard players set @a[scores={mb_music_timer=0}] mb_music_timer -1\n`;
+          tickFunc += `execute as @a[tag=change_song] run function next_sound\n`;
+          tickFunc += `tag @a remove change_song\n`;
+      }
+      behaviorZip.file("functions/tick.mcfunction", tickFunc);
+
+      resourceZip.file("sounds/sound_definitions.json", JSON.stringify(soundDefinitionsObj, null, 2));
+      resourceZip.file("manifest.json", JSON.stringify({ "format_version": 2, "header": { "description": `${packAuthor} - ${packTitle}`, "name": `${packTitle} RP`, "uuid": rpUUID, "version": [1, 0, 0], "min_engine_version": [1, 21, 20] }, "modules": [{ "description": "Mod Kaynakları", "type": "resources", "uuid": generateUUID(), "version": [1, 0, 0] }] }, null, 2));
+      behaviorZip.file("manifest.json", JSON.stringify({ "format_version": 2, "header": { "description": `${packAuthor} - ${packTitle}`, "name": `${packTitle} BP`, "uuid": bpUUID, "version": [1, 0, 0], "min_engine_version": [1, 21, 20] }, "modules": [ { "description": "Mod Mantığı", "type": "data", "uuid": generateUUID(), "version": [1, 0, 0] }, { "description": "Müzik Scripti", "type": "script", "language": "javascript", "uuid": generateUUID(), "entry": "scripts/main.js", "version": [1, 0, 0] } ], "dependencies": [ { "uuid": rpUUID, "version": [1, 0, 0] }, { "module_name": "@minecraft/server", "version": "1.14.0" } ] }, null, 2));
+
+      statusText.innerText = ".MCAddon Dosyası Paketleniyor...";
+      progressBar.style.width = "95%";
+
+      const rpBlob = await resourceZip.generateAsync({ type: "blob", compression: "STORE" });
+      const bpBlob = await behaviorZip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+
+      const mcaddonZip = new JSZip();
+      mcaddonZip.file(`${rawListName}_RP.mcpack`, rpBlob, { compression: "STORE" });
+      mcaddonZip.file(`${rawListName}_BP.mcpack`, bpBlob);
+
+      const finalMcaddonBlob = await mcaddonZip.generateAsync({ type: "blob", compression: "STORE" });
+
+      progressBar.style.width = "100%";
+      saveAs(new File([finalMcaddonBlob], `${rawListName}_Muzik_Modu.mcaddon`, { type: "application/x-minecraft-addon" }));
+      statusText.innerText = "BAŞARILI! Mod dosyanız indirildi. Minecraft'a aktarabilirsiniz!";
+      showToast("Mod paketi başarıyla indirildi!");
+      
+      setTimeout(() => { statusBox.style.display = 'none'; progressBar.style.width = "0%"; }, 5000);
+    } catch (e) { 
+      console.error(e); 
+      statusText.innerText = `HATA: Lütfen bekleyin ve tekrar deneyin.`;
+      progressBar.style.background = "var(--mc-red)";
+      showToast("Bir hata oluştu! Ekrana yansıyan metni kontrol edin."); 
+    } finally { buildBtn.disabled = false; }
+  }
+</script>
+
+</body>
+</html>
