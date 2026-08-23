@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Minecraft Music Mod</title>
+  <script src="cordova.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <style>
@@ -939,20 +940,46 @@ world.afterEvents.itemUse.subscribe((event) => {
       mcaddonZip.file(`${rawListName}_BP.mcpack`, bpBlob);
 
       const finalMcaddonBlob = await mcaddonZip.generateAsync({ type: "blob", compression: "STORE" });
-
       progressBar.style.width = "100%";
-      saveAs(new File([finalMcaddonBlob], `${rawListName}_Muzik_Modu.mcaddon`, { type: "application/x-minecraft-addon" }));
-      statusText.innerText = "BAŞARILI! Mod dosyanız indirildi. Minecraft'a aktarabilirsiniz!";
-      showToast("Mod paketi başarıyla indirildi!");
-      
-      setTimeout(() => { statusBox.style.display = 'none'; progressBar.style.width = "0%"; }, 5000);
-    } catch (e) { 
-      console.error(e); 
-      statusText.innerText = `HATA: Lütfen bekleyin ve tekrar deneyin.`;
-      progressBar.style.background = "var(--mc-red)";
-      showToast("Bir hata oluştu! Ekrana yansıyan metni kontrol edin."); 
-    } finally { buildBtn.disabled = false; }
-  }
+      const dosyaAdi = `${rawListName}_Muzik_Modu.mcaddon`;
+
+      // EĞER UYGULAMA APK İÇİNDEYSE MİNECRAFT'I OTOMATİK AÇ
+      if (typeof cordova !== 'undefined' && cordova.file && cordova.plugins && cordova.plugins.fileOpener2) {
+          window.resolveLocalFileSystemURL(cordova.file.externalDataDirectory, function(dirEntry) {
+              dirEntry.getFile(dosyaAdi, { create: true, exclusive: false }, function(fileEntry) {
+                  fileEntry.createWriter(function(fileWriter) {
+                      fileWriter.onwriteend = function() {
+                          statusText.innerText = "BAŞARILI! Minecraft açılıyor...";
+                          showToast("Mod oluşturuldu, Minecraft'a aktarılıyor!");
+                          
+                          // Dosyayı MCAddon formatında açmaya zorla
+                          cordova.plugins.fileOpener2.open(
+                              fileEntry.nativeURL,
+                              'application/vnd.minecraft.addon',
+                              {
+                                  error: function(e) {
+                                      // Cihaz algılayamazsa genel formatla Minecraft'a at
+                                      cordova.plugins.fileOpener2.open(fileEntry.nativeURL, 'application/octet-stream');
+                                  },
+                                  success: function() { console.log('Minecraft Başarıyla Açıldı'); }
+                              }
+                          );
+                          setTimeout(() => { statusBox.style.display = 'none'; progressBar.style.width = "0%"; }, 5000);
+                      };
+                      fileWriter.onerror = function() { statusText.innerText = "HATA: Cihaza kaydedilemedi!"; };
+                      fileWriter.write(finalMcaddonBlob);
+                  });
+              }, function() { statusText.innerText = "HATA: Dosya oluşturulamadı!"; });
+          }, function() { statusText.innerText = "HATA: Dizin bulunamadı!"; });
+      } 
+      // EĞER NORMAL TARAYICIDAYSA ESKİSİ GİBİ SADECE İNDİR
+      else {
+          saveAs(new File([finalMcaddonBlob], dosyaAdi, { type: "application/x-minecraft-addon" }));
+          statusText.innerText = "BAŞARILI! Mod dosyanız indirildi. Minecraft'a aktarabilirsiniz!";
+          showToast("Mod paketi başarıyla indirildi!");
+          setTimeout(() => { statusBox.style.display = 'none'; progressBar.style.width = "0%"; }, 5000);
+      }
+
 </script>
 
 </body>
