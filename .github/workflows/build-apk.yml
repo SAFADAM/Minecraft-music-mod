@@ -15,7 +15,7 @@ jobs:
     - name: 📥 Depoyu Klonla (Checkout)
       uses: actions/checkout@v4
 
-    - name: ⚙️ Node.js Kurulumu (Capacitor İçin)
+    - name:  Node.js Kurulumu (Capacitor İçin)
       uses: actions/setup-node@v4
       with:
         node-version: '20'
